@@ -1,0 +1,14 @@
+pandas
+python-dotenv
+llama-index
+llama-index-experimental
+llama-index-embeddings-huggingface
+llama-index-readers-file
+llama-index-vector-stores-postgres
+llama-index-llms-llama-cpp 
+pymupdf
+psycopg2-binary
+pgvector
+asyncpg
+"sqlalchemy[asyncio]"
+greenlet
