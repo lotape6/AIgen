@@ -1,0 +1,6 @@
+PSQL notes
+
+\c vector_db;
+CREATE EXTENSION IF NOT EXISTS vector;
+CREATE TABLE IF NOT EXISTS data_tuits (id bigserial PRIMARY KEY, text VARCHAR, metadata_ JSON, node_id VARCHAR, embedding VECTOR(1024));
+ALTER TABLE data_tuits OWNER TO aigen;

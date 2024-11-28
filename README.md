@@ -31,6 +31,7 @@ sudo apt-get install -y cuda-drivers-555
 # Reboot
 ```
 
+
 ## AIgen
 
 ```
@@ -54,4 +55,20 @@ python -m pip install llama-index-llms-llama-cpp "llama_cpp_python >= 0.3.2"
 CMAKE_ARGS="-DLLAMA_CURL=on -DGGML_CUDA=on -DCUDA_PATH=/usr/local/cuda-12.6 -DCUDAToolkit_ROOT=/usr/local/cuda-12.6 -DCUDAToolkit_INCLUDE_DIR=/usr/local/cuda-12/include -DCUDAToolkit_LIBRARY_DIR=/usr/local/cuda-12.6/lib64" FORCE_CMAKE=1 pip install llama-cpp-python --no-cache-dir
 
 
+```
+
+## PostgreSQL pgvector
+
+```
+sudo apt install postgresql-15-pgvector postgresql-server-dev-15
+
+# From https://github.com/pgvector/pgvector
+cd /tmp
+git clone --branch v0.8.0 https://github.com/pgvector/pgvector.git
+cd pgvector
+make
+make install # may need sudo
+
+# Already in requirements
+pip install psycopg2-binary pgvector asyncpg "sqlalchemy[asyncio]" greenlet
 ```
