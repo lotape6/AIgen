@@ -22,7 +22,7 @@ class Indexer():
                  user: str = os.getenv("DBUSER"),
                  table_name: str = os.getenv("TABLENAME"),
                  embedding_model_name: str = os.getenv("EMB_MODEL_NAME"),
-                 vector_size: int = os.getenv("VECTOR_SIZE")
+                 vector_size: int = int(os.getenv("VECTOR_SIZE"))
                  ) -> None:
         self.db_name = db_name
         self.host = host
@@ -33,7 +33,7 @@ class Indexer():
         self.embedding_model_name = embedding_model_name
         self.vector_size = vector_size
 
-        self.valid_extensions = [".xslx"]
+        self.valid_extensions = [".xlsx"]
 
     def clearDb(self):
         conn = psycopg2.connect(
@@ -62,7 +62,7 @@ class Indexer():
                 "source": str(file_path)}))
         return documents
 
-    def xslxExtractDocuments(self, files: list):
+    def xlsxExtractDocuments(self, files: list):
         documents = []
         for file in files:
             documents.extend(self.readExcelAsDocument(file))
@@ -78,12 +78,11 @@ class Indexer():
         file_list_dict = {ext: [] for ext in self.valid_extensions}
         for root, _, files in os.walk(path):
             for ext in self.valid_extensions:
-                file_list_dict[ext].append([os.path.join(
+                file_list_dict[ext].extend([os.path.join(
                     root, file) for file in files if file.endswith(ext)])
 
             if not recursive:
                 break
-
         for ext in self.valid_extensions:
             documentExtractor = getattr(
                 self, ext.replace(".", "")+"ExtractDocuments")
@@ -117,6 +116,10 @@ class Indexer():
         index = VectorStoreIndex.from_documents(
             documents, storage_context=storage_context, show_progress=True
         )
+
+    def indexDocumentsFromPath(self, path: str, recursive: bool = False):
+        docs = self.extractDocuments(path, recursive)
+        self.indexDocuments(docs)
 
 
 # Tokenizer?
