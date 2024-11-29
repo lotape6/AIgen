@@ -1,28 +1,30 @@
+import pandas as pd
+import os
+import psycopg2
+import inspect
+
+from llama_index.core import SimpleDirectoryReader
 from llama_index.core import StorageContext, Document
 from llama_index.core import VectorStoreIndex
 from llama_index.vector_stores.postgres import PGVectorStore
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.core import Settings
-from dotenv import load_dotenv
-import psycopg2
-import os
-import pandas as pd
-
-
-load_dotenv()
+from llama_index.readers.file import DocxReader, PyMuPDFReader
 
 
 class Indexer():
 
     def __init__(self,
-                 db_name: str = os.getenv("DBNAME"),
-                 host: str = os.getenv("DBHOST"),
-                 password: str = os.getenv("DBPASSWORD"),
-                 port: str = os.getenv("DBPORT"),
-                 user: str = os.getenv("DBUSER"),
-                 table_name: str = os.getenv("TABLENAME"),
-                 embedding_model_name: str = os.getenv("EMB_MODEL_NAME"),
-                 vector_size: int = int(os.getenv("VECTOR_SIZE"))
+                 db_name: str,
+                 host: str,
+                 password: str,
+                 port: str,
+                 user: str,
+                 table_name: str,
+                 embedding_model_name: str,
+                 vector_size: int,
+                 verbose: bool,
+                 valid_extensions: list[str] = [".docx", ".pdf"],
                  ) -> None:
         self.db_name = db_name
         self.host = host
@@ -32,8 +34,10 @@ class Indexer():
         self.table_name = table_name
         self.embedding_model_name = embedding_model_name
         self.vector_size = vector_size
+        self.valid_extensions = valid_extensions
+        self.verbose = verbose
 
-        self.valid_extensions = [".xlsx"]
+        self.EXTRACTOR_METHOD_SUFIX = "Reader"
 
     def clearDb(self):
         conn = psycopg2.connect(
@@ -45,50 +49,79 @@ class Indexer():
         )
         conn.autocommit = True
 
-        print("Clearing database")
+        self.print(f"Deleting {self.table_name} table from {self.db_name} database")  # nopep8
         with conn.cursor() as c:
             c.execute(f"DROP DATABASE IF EXISTS {self.db_name}")
             c.execute(f"CREATE DATABASE {self.db_name}")
-            c.execute(f"CREATE EXTENSION vector")
-            c.execute(f"CREATE TABLE data_tuits (id bigserial PRIMARY KEY, text VARCHAR, metadata_ JSON, node_id VARCHAR, embedding VECTOR({
-                      self.vector_size})")
 
-    def readExcelAsDocument(self, file_path):
-        df = pd.read_excel(file_path)
-        documents = []
-        for _, row in df.iterrows():
-            content = "\n".join(f"{col}: {row[col]}" for col in df.columns)
-            documents.append(Document(text=content, metadata={
-                "source": str(file_path)}))
+        conn = psycopg2.connect(
+            dbname=self.db_name,
+            host=self.host,
+            password=self.password,
+            port=self.port,
+            user=self.user,
+        )
+        conn.autocommit = True
+
+        with conn.cursor() as c:
+            c.execute("CREATE EXTENSION IF NOT EXISTS vector")
+            c.execute(f"CREATE TABLE data_{self.table_name} (id bigserial PRIMARY KEY, text VARCHAR, metadata_ JSON, node_id VARCHAR, embedding VECTOR({self.vector_size}))")  # nopep8
+
+    ######################
+    #   Document Parsers
+    ######################
+
+    # This method could be simplified, but keeping methods for further specialization
+    def docxReader(self, files: list, extension: str):
+        parser = DocxReader()
+        file_extractor = {extension: parser}
+        documents = SimpleDirectoryReader(
+            input_files=files, file_extractor=file_extractor
+        ).load_data()
         return documents
 
-    def xlsxExtractDocuments(self, files: list):
-        documents = []
-        for file in files:
-            documents.extend(self.readExcelAsDocument(file))
+    def pdfReader(self, files: list, extension: str):
+        parser = PyMuPDFReader()
+        file_extractor = {extension: parser}
+        documents = SimpleDirectoryReader(
+            input_files=files, file_extractor=file_extractor
+        ).load_data()
         return documents
 
-    def pdfExtractDocuments(slef, files: list):
-        documents = []
+    ######################
+    #   Helper methods
+    ######################
 
-        return documents
-
+    # This method is completely unnecessary, but keeping it for further compatibility
     def extractDocuments(self, path: str, recursive: bool = False):
+        self.print(f"Reading documents with extensions {self.valid_extensions}")  # nopep8
+        self.print(f"Path: {path}")  # nopep8
+        if recursive:
+            self.print(f"Searching recursively")  # nopep8
+
         documents = []
         file_list_dict = {ext: [] for ext in self.valid_extensions}
         for root, _, files in os.walk(path):
             for ext in self.valid_extensions:
                 file_list_dict[ext].extend([os.path.join(
                     root, file) for file in files if file.endswith(ext)])
-
             if not recursive:
                 break
+
+        self.print("Obtained files from extensions")
+        self.print(file_list_dict)
+
         for ext in self.valid_extensions:
-            documentExtractor = getattr(
-                self, ext.replace(".", "")+"ExtractDocuments")
-            documents.extend(documentExtractor(file_list_dict[ext]))
+            if len(file_list_dict[ext]):
+                documentExtractor = getattr(
+                    self, ext.replace(".", "")+self.EXTRACTOR_METHOD_SUFIX)
+                documents.extend(documentExtractor(file_list_dict[ext], ext))
 
         return documents
+
+    ######################
+    #   Indexing
+    ######################
 
     def indexDocuments(self, documents: list):
         embed_model = HuggingFaceEmbedding(
@@ -120,6 +153,11 @@ class Indexer():
     def indexDocumentsFromPath(self, path: str, recursive: bool = False):
         docs = self.extractDocuments(path, recursive)
         self.indexDocuments(docs)
+
+    def print(self, text):
+        if (self.verbose):
+            print(text)
+            print()
 
 
 # Tokenizer?

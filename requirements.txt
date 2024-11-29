@@ -13,3 +13,4 @@ pgvector
 asyncpg
 "sqlalchemy[asyncio]"
 greenlet
+docx2txt
