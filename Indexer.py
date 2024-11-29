@@ -1,15 +1,13 @@
-from llama_index.core import SimpleDirectoryReader, StorageContext, Document
+from llama_index.core import StorageContext, Document
 from llama_index.core import VectorStoreIndex
 from llama_index.vector_stores.postgres import PGVectorStore
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.core import Settings
-from transformers import AutoTokenizer
 from dotenv import load_dotenv
-import textwrap
 import psycopg2
 import os
 import pandas as pd
-from pathlib import Path
+
 
 load_dotenv()
 
